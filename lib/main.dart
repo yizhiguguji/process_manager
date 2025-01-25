@@ -181,173 +181,180 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: processes.length,
-        itemBuilder: (context, index) {
-          final process = processes[index];
-          return Card(
-            margin: const EdgeInsets.all(8.0),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: IntrinsicHeight(  // 确保左右两栏高度一致
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 左侧配置栏 - 固定宽度
-                    SizedBox(
-                      width: 400,  // 固定左侧宽度
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      body: SingleChildScrollView(  // 添加整体滚动支持
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            children: List.generate(
+              processes.length,
+              (index) {
+                final process = processes[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8.0),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: IntrinsicHeight(  // 确保左右两栏高度一致
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  decoration: const InputDecoration(labelText: '程序名称'),
-                                  controller: _nameControllers[index],
+                          // 左侧配置栏 - 固定宽度
+                          SizedBox(
+                            width: 400,  // 固定左侧宽度
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        decoration: const InputDecoration(labelText: '程序名称'),
+                                        controller: _nameControllers[index],
+                                        onChanged: (value) {
+                                          process.name = value;
+                                          _saveSettings(index);
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: process.isRunning ? Colors.red : Colors.green,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(5),
+                                        ),
+                                      ),
+                                      onPressed: () async {
+                                        try {
+                                          if (process.isRunning) {
+                                            await _processService.stopProcess(process);
+                                          } else {
+                                            await _processService.startProcess(process);
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(e.toString()),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      child: Text(process.isRunning ? '停止' : '启动'),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      onPressed: () {
+                                        if (process.isRunning) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('请先停止进程再删除'),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        setState(() {
+                                          // 移除控制器
+                                          _nameControllers[index].dispose();
+                                          _pathControllers[index].dispose();
+                                          _argsControllers[index].dispose();
+                                          _nameControllers.removeAt(index);
+                                          _pathControllers.removeAt(index);
+                                          _argsControllers.removeAt(index);
+                                          // 移除进程
+                                          process.removeListener(() {});
+                                          processes.removeAt(index);
+                                          // 重新保存所有设置
+                                          for (var i = 0; i < processes.length; i++) {
+                                            _saveSettings(i);
+                                          }
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                TextField(
+                                  decoration: const InputDecoration(labelText: '程序路径'),
+                                  controller: _pathControllers[index],
                                   onChanged: (value) {
-                                    process.name = value;
+                                    process.path = value;
                                     _saveSettings(index);
                                   },
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: process.isRunning ? Colors.red : Colors.green,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(5),
+                                TextField(
+                                  decoration: const InputDecoration(labelText: '程序参数'),
+                                  controller: _argsControllers[index],
+                                  onChanged: (value) {
+                                    process.args = value;
+                                    _saveSettings(index);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '状态: ${process.isRunning ? "运行中" : "已停止"}',
+                                  style: TextStyle(
+                                    color: process.isRunning ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                onPressed: () async {
-                                  try {
-                                    if (process.isRunning) {
-                                      await _processService.stopProcess(process);
-                                    } else {
-                                      await _processService.startProcess(process);
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(e.toString()),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                child: Text(process.isRunning ? '停止' : '启动'),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  if (process.isRunning) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('请先停止进程再删除'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  setState(() {
-                                    // 移除控制器
-                                    _nameControllers[index].dispose();
-                                    _pathControllers[index].dispose();
-                                    _argsControllers[index].dispose();
-                                    _nameControllers.removeAt(index);
-                                    _pathControllers.removeAt(index);
-                                    _argsControllers.removeAt(index);
-                                    // 移除进程
-                                    process.removeListener(() {});
-                                    processes.removeAt(index);
-                                    // 重新保存所有设置
-                                    for (var i = 0; i < processes.length; i++) {
-                                      _saveSettings(i);
-                                    }
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                          TextField(
-                            decoration: const InputDecoration(labelText: '程序路径'),
-                            controller: _pathControllers[index],
-                            onChanged: (value) {
-                              process.path = value;
-                              _saveSettings(index);
-                            },
-                          ),
-                          TextField(
-                            decoration: const InputDecoration(labelText: '程序参数'),
-                            controller: _argsControllers[index],
-                            onChanged: (value) {
-                              process.args = value;
-                              _saveSettings(index);
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '状态: ${process.isRunning ? "运行中" : "已停止"}',
-                            style: TextStyle(
-                              color: process.isRunning ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    // 分隔线
-                    const VerticalDivider(thickness: 1),
-                    // 右侧日志栏 - 自适应宽度
-                    Expanded(
-                      flex: 1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('输出日志',
-                                style: TextStyle(fontWeight: FontWeight.bold)
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  process.clearOutput();
-                                },
-                                child: const Text('清除'),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            height: 150,  // 固定高度
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            padding: const EdgeInsets.all(8),
-                            child: SingleChildScrollView(
-                              reverse: true,
-                              child: Text(
-                                process.output.isEmpty ? '暂无输出' : process.getRecentOutput(100),
-                                style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
+                          // 分隔线
+                          const VerticalDivider(thickness: 1),
+                          // 右侧日志栏 - 自适应宽度
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('输出日志',
+                                      style: TextStyle(fontWeight: FontWeight.bold)
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        process.clearOutput();
+                                      },
+                                      child: const Text('清除'),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                                Container(
+                                  height: 150,  // 固定高度
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                  child: SingleChildScrollView(
+                                    reverse: true,
+                                    child: Text(
+                                      process.output.isEmpty ? '暂无输出' : process.getRecentOutput(100),
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

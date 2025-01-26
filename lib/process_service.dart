@@ -50,6 +50,8 @@ class ProcessInfo extends ChangeNotifier {
 }
 
 class ProcessService {
+  final Map<ProcessInfo, Process> _runningProcesses = {};
+
   Future<void> startProcess(ProcessInfo info) async {
     if (info.isRunning) return;
     
@@ -148,5 +150,17 @@ class ProcessService {
       info.addOutput('停止进程错误: $e\n');
       rethrow;
     }
+  }
+
+  // 添加关闭所有进程的方法
+  Future<void> stopAllProcesses() async {
+    for (var process in _runningProcesses.values) {
+      try {
+        process.kill();
+      } catch (e) {
+        print('停止进程时出错: $e');
+      }
+    }
+    _runningProcesses.clear();
   }
 }

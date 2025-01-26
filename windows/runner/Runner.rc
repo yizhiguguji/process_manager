@@ -89,14 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            // 修改 VALUE "FileDescription" 和 "ProductName"
-            VALUE "FileDescription", "process_manager" "\0"
+            VALUE "CompanyName", "GuGuJi" "\0"
+            VALUE "FileDescription", "进程管理器" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "process_manager" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "process_manager.exe" "\0"
-            VALUE "ProductName", "process_manager" "\0"
+            VALUE "InternalName", "进程管理器" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 GuGuJi. All rights reserved." "\0"
+            VALUE "OriginalFilename", "进程管理器.exe" "\0"
+            VALUE "ProductName", "进程管理器" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

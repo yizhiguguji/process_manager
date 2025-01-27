@@ -218,7 +218,7 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
         ),
         body: SingleChildScrollView(  // 添加整体滚动支持
           child: Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0), // 修改垂直方向的间距
             child: Column(
               children: List.generate(
                 processes.length,

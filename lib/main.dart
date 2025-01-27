@@ -225,16 +225,20 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
                 (index) {
                   final process = processes[index];
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 8.0),
+                    margin: const EdgeInsets.only(bottom: 16.0),
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),  // 从 12 改为 8
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: IntrinsicHeight(  // 确保左右两栏高度一致
+                      padding: const EdgeInsets.all(20.0),
+                      child: IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // 左侧配置栏 - 固定宽度
+                            // 左侧配置栏
                             SizedBox(
-                              width: 400,  // 固定左侧宽度
+                              width: 400,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -242,7 +246,16 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
                                     children: [
                                       Expanded(
                                         child: TextField(
-                                          decoration: const InputDecoration(labelText: '程序名称'),
+                                          decoration: InputDecoration(
+                                            labelText: '程序名称',
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(6),  // 从 8 改为 6
+                                            ),
+                                            contentPadding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 12,
+                                            ),
+                                          ),
                                           controller: _nameControllers[index],
                                           onChanged: (value) {
                                             process.name = value;
@@ -256,7 +269,11 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
                                           backgroundColor: process.isRunning ? Colors.red : Colors.green,
                                           foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(5),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
                                           ),
                                         ),
                                         onPressed: () async {
@@ -311,69 +328,117 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 16),
                                   TextField(
-                                    decoration: const InputDecoration(labelText: '程序路径'),
+                                    decoration: InputDecoration(
+                                      labelText: '程序路径',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
                                     controller: _pathControllers[index],
+                                    enabled: !process.isRunning,  // 运行时禁用
                                     onChanged: (value) {
                                       process.path = value;
                                       _saveSettings(index);
                                     },
                                   ),
+                                  const SizedBox(height: 16),
                                   TextField(
-                                    decoration: const InputDecoration(labelText: '程序参数'),
+                                    decoration: InputDecoration(
+                                      labelText: '程序参数',
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 12,
+                                      ),
+                                    ),
                                     controller: _argsControllers[index],
+                                    enabled: !process.isRunning,  // 运行时禁用
                                     onChanged: (value) {
                                       process.args = value;
                                       _saveSettings(index);
                                     },
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '状态: ${process.isRunning ? "运行中" : "已停止"}',
-                                    style: TextStyle(
-                                      color: process.isRunning ? Colors.green : Colors.red,
-                                      fontWeight: FontWeight.bold,
+                                  const SizedBox(height: 16),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: process.isRunning ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),  // 从 8 改为 6
+                                    ),
+                                    child: Text(
+                                      '状态: ${process.isRunning ? "运行中" : "已停止"}',
+                                      style: TextStyle(
+                                        color: process.isRunning ? Colors.green : Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             // 分隔线
-                            const VerticalDivider(thickness: 1),
-                            // 右侧日志栏 - 自适应宽度
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: VerticalDivider(
+                                thickness: 1,
+                                color: Colors.grey.withOpacity(0.2),
+                              ),
+                            ),
+                            // 右侧日志栏
                             Expanded(
-                              flex: 1,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text('输出日志',
-                                        style: TextStyle(fontWeight: FontWeight.bold)
+                                      const Text(
+                                        '输出日志',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
                                       ),
-                                      TextButton(
+                                      TextButton.icon(
                                         onPressed: () {
                                           process.clearOutput();
                                         },
-                                        child: const Text('清除'),
+                                        icon: const Icon(Icons.clear),
+                                        label: const Text('清除'),
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 8),
                                   Container(
                                     height: 150,
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(4),
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.grey.withOpacity(0.2),
+                                      ),
                                     ),
-                                    padding: const EdgeInsets.all(8),
+                                    padding: const EdgeInsets.all(12),
                                     child: SingleChildScrollView(
                                       reverse: true,
                                       child: Text(
                                         process.output.isEmpty ? '暂无输出' : process.getRecentOutput(100),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontFamily: 'monospace',
-                                          fontSize: 12,
+                                          fontSize: 13,
+                                          color: Colors.grey[800],
+                                          height: 1.5,
                                         ),
                                       ),
                                     ),

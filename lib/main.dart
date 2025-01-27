@@ -414,8 +414,13 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
                                         onPressed: () {
                                           process.clearOutput();
                                         },
-                                        icon: const Icon(Icons.clear),
+                                        icon: const Icon(Icons.cleaning_services), // 修改为扫帚图标
                                         label: const Text('清除'),
+                                        style: TextButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(6), // 使用较小的圆角
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -463,6 +468,11 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
   // 处理窗口关闭事件
   @override
   Future<void> onWindowClose() async {
+    // 保存当前窗口尺寸
+    final size = await windowManager.getSize();
+    await _prefs.setDouble('window_width', size.width);
+    await _prefs.setDouble('window_height', size.height);
+
     bool hasRunningProcess = processes.any((p) => p.isRunning);
     if (!hasRunningProcess) {
       await windowManager.destroy();
@@ -512,5 +522,12 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
     if (!isPreventClose) {
       await windowManager.destroy();
     }
+  }
+
+  @override
+  void onWindowResize() async {
+    final size = await windowManager.getSize();
+    await _prefs.setDouble('window_width', size.width);
+    await _prefs.setDouble('window_height', size.height);
   }
 }

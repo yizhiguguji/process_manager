@@ -196,24 +196,91 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
         appBar: AppBar(
           title: const Text('进程管理器'),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.add),
+            // 全部停止按钮
+            ElevatedButton.icon(
+              onPressed: processes.any((p) => p.isRunning) ? () async {
+                final runningProcesses = processes.where((p) => p.isRunning).toList();
+                if (runningProcesses.isEmpty) return;
+                
+                for (var process in runningProcesses) {
+                  await _processService.stopProcess(process);
+                }
+              } : null,
+              icon: const Icon(Icons.stop_circle, color: Colors.white),
+              label: Text('全部停止 (${processes.where((p) => p.isRunning).length})', 
+                style: const TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                disabledForegroundColor: Colors.grey[400],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 全部启动按钮
+            ElevatedButton.icon(
+              onPressed: processes.any((p) => !p.isRunning) ? () async {
+                final stoppedProcesses = processes.where((p) => !p.isRunning).toList();
+                if (stoppedProcesses.isEmpty) return;
+                
+                for (var process in stoppedProcesses) {
+                  try {
+                    await _processService.startProcess(process);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('启动失败: ${process.name} - ${e.toString()}'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                }
+              } : null,
+              icon: const Icon(Icons.play_circle, color: Colors.white),
+              label: Text('全部启动 (${processes.where((p) => !p.isRunning).length})', 
+                style: const TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                disabledForegroundColor: Colors.grey[400],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 添加按钮
+            ElevatedButton.icon(
               onPressed: () {
                 setState(() {
                   processes.add(ProcessInfo(name: '新程序', path: '', args: ''));
-                  // 为新进程添加控制器
                   _nameControllers.add(TextEditingController(text: '新程序'));
                   _pathControllers.add(TextEditingController(text: ''));
                   _argsControllers.add(TextEditingController(text: ''));
-                  // 添加监听器
                   processes.last.addListener(() {
                     setState(() {});
                   });
-                  // 保存设置
                   _saveSettings(processes.length - 1);
                 });
               },
+              icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+              label: const Text('添加'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2196F3), // 使用标准的 Material Blue
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
             ),
+            const SizedBox(width: 8),
           ],
         ),
         body: SingleChildScrollView(  // 添加整体滚动支持

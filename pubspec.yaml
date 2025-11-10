@@ -29,13 +29,13 @@ flutter_launcher_icons:
   # 针对所有平台 (android, ios, macos, windows, linux) 都设为 true
   android: true
   ios: true
-  image_path: "assets/icons/icon.png" # 指向你的图标文件
+  image_path: "assets/icons/app_icon.png" # 指向你的图标文件
   min_sdk_android: 21 # 可选
   windows:
     generate: true
-    image_path: "assets/icons/icon.png"
+    image_path: "assets/icons/app_icon.png"
     icon_size: 256 # windows 的 .ico 文件的主尺寸
   macos:
     generate: true
-    image_path: "assets/icons/icon.png"
+    image_path: "assets/icons/app_icon.png"
 

@@ -127,7 +127,7 @@ class ProcessService {
       pInfo.isRunning = true;
       pInfo.process = process;
       pInfo.clearLogs();
-      pInfo.addLog('进程已启动，程序: $executablePath, 工作目录: $workingDirectory');
+      pInfo.addLog('进程已启动，程序: $executablePath, 工作目录: $workingDirectory\n\n');
 
       process.stdout.transform(utf8.decoder).listen((data) {
         pInfo.addLog(data.trim());

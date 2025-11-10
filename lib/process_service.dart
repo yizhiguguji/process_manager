@@ -1,166 +1,172 @@
-import 'dart:io';
-import 'package:process_run/process_run.dart';
-import 'package:path/path.dart' as path;
-import 'package:flutter/foundation.dart';
+// process_service.dart
 
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+
+/// 代表一个可被管理进程的信息
 class ProcessInfo extends ChangeNotifier {
-  static const int maxOutputLength = 1000;
   String name;
   String path;
   String args;
   bool isRunning;
+  bool autoStart;
+  final List<String> logs = [];
   Process? process;
-  final List<String> _outputLines = [];
 
   ProcessInfo({
     required this.name,
     required this.path,
     required this.args,
     this.isRunning = false,
-    this.process,
+    this.autoStart = false,
   });
 
-  void updateStatus(bool status) {
-    isRunning = status;
-    notifyListeners();
-  }
-
-  String getRecentOutput(int lines) {
-    if (_outputLines.isEmpty) return '';
-    final start = _outputLines.length > lines ? 
-                 _outputLines.length - lines : 0;
-    return _outputLines.sublist(start).join('\n');
-  }
-
-  String get output => _outputLines.join('\n');
-
-  void addOutput(String text) {
-    _outputLines.add(text);
-    // 保持最新的日志，超出限制时删除旧的
-    while (_outputLines.length > maxOutputLength) {
-      _outputLines.removeAt(0);
+  /// 添加一行日志
+  void addLog(String log) {
+    // 限制日志数量，防止内存无限增长
+    if (logs.length > 1000) {
+      logs.removeAt(0);
     }
+    logs.add(log);
     notifyListeners();
   }
 
-  void clearOutput() {
-    _outputLines.clear();
+  /// 清空日志
+  void clearLogs() {
+    logs.clear();
     notifyListeners();
+  }
+
+  // 用于 JSON 序列化的方法
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'path': path,
+    'args': args,
+    'autoStart': autoStart,
+  };
+
+  // 用于 JSON 反序列化的工厂构造函数
+  factory ProcessInfo.fromJson(Map<String, dynamic> json) {
+    return ProcessInfo(
+      name: json['name'] ?? '未命名',
+      path: json['path'] ?? '',
+      args: json['args'] ?? '',
+      autoStart: json['autoStart'] ?? false,
+    );
   }
 }
 
+/// 负责启动和停止进程的服务类
 class ProcessService {
-  final Map<ProcessInfo, Process> _runningProcesses = {};
+  /// 启动一个进程
+  Future<void> startProcess(ProcessInfo pInfo) async {
+    if (pInfo.isRunning) return;
+    if (pInfo.path.isEmpty) {
+      throw '程序路径不能为空';
+    }
 
-  Future<void> startProcess(ProcessInfo info) async {
-    if (info.isRunning) return;
-    
     try {
-      // Validate input path
-      if (info.path.trim().isEmpty) {
-        throw ProcessException('', [], '请输入程序路径');
-      }
+      String executablePath = pInfo.path.trim(); // 去除前后空格
 
-      // 改进路径处理
-      String expandedPath = info.path.trim();
-      if (expandedPath.startsWith('~/')) {
-        final home = Platform.environment['HOME'];
-        if (home != null) {
-          expandedPath = path.join(home, expandedPath.substring(2));
+      // 只有当路径包含路径分隔符、点，或者以'~'开头时，我们才认为它是一个“路径”并尝试解析。
+      // 否则，我们认为它是一个系统命令 (如 'dart', 'node')，保持原样让系统去PATH中查找。
+      bool isLikelyAPath = executablePath.contains('/') ||
+          executablePath.contains('\\') ||
+          executablePath.contains('.') ||
+          executablePath.startsWith('~');
+
+      if (isLikelyAPath) {
+        // 处理 '~' 用户主目录 (macOS/Linux)
+        if (Platform.isMacOS || Platform.isLinux) {
+          if (executablePath.startsWith('~/')) {
+            final homeDir = Platform.environment['HOME'];
+            if (homeDir != null) {
+              executablePath = executablePath.replaceFirst('~', homeDir);
+            }
+          }
+        }
+
+        // 将可能是相对路径的程序路径，转换为绝对路径
+        if (!p.isAbsolute(executablePath)) {
+          executablePath = p.absolute(executablePath);
+        }
+
+        // 检查解析后的文件是否存在
+        if (!await File(executablePath).exists()) {
+          throw '程序文件不存在: $executablePath';
         }
       }
-      
-      // 确保路径规范化
-      expandedPath = path.normalize(expandedPath);
-      debugPrint('Attempting to start process at: $expandedPath');
-      
-      // 检查文件是否存在并且可执行
-      final file = File(expandedPath);
-      if (!file.existsSync()) {
-        throw ProcessException(
-          expandedPath,
-          [],
-          '可执行文件未找到，请检查路径: $expandedPath',
-        );
+
+      // --- 2. 将所有参数中的相对路径转换为绝对路径  ---
+      List<String> resolvedArgs = [];
+      final originalArgs = pInfo.args.split(' ').where((s) => s.isNotEmpty);
+
+      for (String arg in originalArgs) {
+        if (arg.contains('/') || arg.contains('\\')) {
+          if (!p.isAbsolute(arg)) {
+            resolvedArgs.add(p.absolute(arg));
+            continue;
+          }
+        }
+        resolvedArgs.add(arg);
       }
 
-      final String workingDirectory = path.dirname(expandedPath);
-      
+      // --- 3. 获取工作目录  ---
+      // 只有当它是路径时，我们才能安全地获取目录。如果是命令，则使用当前目录。
+      final String workingDirectory = isLikelyAPath ? p.dirname(executablePath) : '.';
+
+      // --- 4. 启动进程 (此逻辑保持不变) ---
       final process = await Process.start(
-        expandedPath,
-        info.args.split(' ').where((arg) => arg.isNotEmpty).toList(),
+        executablePath,
+        resolvedArgs,
         workingDirectory: workingDirectory,
       );
-      
-      info.process = process;
-      info.updateStatus(true);
 
-      // 处理标准输出
-      process.stdout.transform(const SystemEncoding().decoder).listen(
-        (data) {
-          info.addOutput(data.trim());  // 移除了 '输出:' 前缀
-          debugPrint('Process stdout: $data');
-        },
-        onError: (error) {
-          debugPrint('输出错误: $error');
-        }
-      );
-      
-      // 处理错误输出
-      process.stderr.transform(const SystemEncoding().decoder).listen(
-        (data) {
-          info.addOutput('${data.trim()}');  // 只在错误输出添加前缀
-          debugPrint('Process stderr: $data');
-        },
-        onError: (error) {
-          debugPrint('错误输出错误: $error');
-        }
-      );
+      pInfo.isRunning = true;
+      pInfo.process = process;
+      pInfo.clearLogs();
+      pInfo.addLog('进程已启动，程序: $executablePath, 工作目录: $workingDirectory');
 
-      // 监听进程退出
-      process.exitCode.then((code) {
-        debugPrint('进程退出，退出码: $code');
-        info.updateStatus(false);
-        info.process = null;
-      }).catchError((error) {
-        debugPrint('进程错误: $error');
-        info.updateStatus(false);
-        info.process = null;
+      process.stdout.transform(utf8.decoder).listen((data) {
+        pInfo.addLog(data.trim());
       });
-      
+
+      process.stderr.transform(utf8.decoder).listen((data) {
+        pInfo.addLog('[错误] ${data.trim()}');
+      });
+
+      process.exitCode.then((exitCode) {
+        pInfo.addLog('\n进程已退出，退出码: $exitCode');
+        pInfo.isRunning = false;
+        pInfo.process = null;
+        pInfo.notifyListeners();
+      });
+
+      pInfo.notifyListeners();
+
     } catch (e) {
-      debugPrint('启动进程错误: $e');
-      info.updateStatus(false);
-      info.process = null;
-      info.addOutput('错误: $e\n');  // Add error to output
-      rethrow;
+      pInfo.isRunning = false;
+      final errorMessage = '启动失败: ${e.toString()}';
+      pInfo.addLog(errorMessage);
+      throw errorMessage;
     }
   }
 
-  Future<void> stopProcess(ProcessInfo info) async {
-    if (!info.isRunning || info.process == null) return;
-    
-    try {
-      info.process!.kill();
-      info.updateStatus(false);
-      info.process = null;
-      info.addOutput('进程已停止\n');
-    } catch (e) {
-      debugPrint('停止进程错误: $e');
-      info.addOutput('停止进程错误: $e\n');
-      rethrow;
-    }
-  }
-
-  // 添加关闭所有进程的方法
-  Future<void> stopAllProcesses() async {
-    for (var process in _runningProcesses.values) {
-      try {
-        process.kill();
-      } catch (e) {
-        print('停止进程时出错: $e');
+  /// 停止一个进程
+  Future<void> stopProcess(ProcessInfo pInfo) async {
+    if (pInfo.isRunning && pInfo.process != null) {
+      final killed = pInfo.process!.kill();
+      if (killed) {
+        pInfo.addLog('\n命令已发送：停止进程...');
+      } else {
+        pInfo.addLog('\n错误：无法发送停止命令，进程可能已经退出。');
       }
+      // 不论命令是否发送成功，都将状态更新为非运行
+      pInfo.isRunning = false;
+      pInfo.process = null;
+      pInfo.notifyListeners();
     }
-    _runningProcesses.clear();
   }
 }

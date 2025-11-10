@@ -26,8 +26,12 @@
 2. 克隆项目到本地
 3. 运行以下命令：
 
-```bash
+```shell
 flutter pub get
 flutter run
 ```
 
+### Mac上运行
+```shell
+sudo spctl --master-disable
+```

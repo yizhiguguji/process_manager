@@ -99,42 +99,38 @@ class ProcessService {
         }
       }
 
-      // --- 2. 将所有参数中的相对路径转换为绝对路径  ---
-      List<String> resolvedArgs = [];
-      final originalArgs = pInfo.args.split(' ').where((s) => s.isNotEmpty);
-
-      for (String arg in originalArgs) {
-        if (arg.contains('/') || arg.contains('\\')) {
-          if (!p.isAbsolute(arg)) {
-            resolvedArgs.add(p.absolute(arg));
-            continue;
-          }
-        }
-        resolvedArgs.add(arg);
-      }
+      // --- 2. 解析参数 ---
+      // (不对参数路径进行转换，因为 shell 会更好地处理相对路径和特殊字符)
+      final List<String> resolvedArgs = pInfo.args.split(' ').where((s) => s.isNotEmpty).toList();
 
       // --- 3. 获取工作目录  ---
       // 只有当它是路径时，我们才能安全地获取目录。如果是命令，则使用当前目录。
       final String workingDirectory = isLikelyAPath ? p.dirname(executablePath) : '.';
 
-      // --- 4. 启动进程 (此逻辑保持不变) ---
+      // --- 4. 启动进程 ---
+      // 为了解决 scrcpy 等命令行工具因输出缓冲导致的日志顺序错乱问题，
+      // 我们采用 runInShell: true。这会通过系统 shell 启动进程，
+      // 模拟一个更接近真实终端的环境，通常能“说服”被调用程序禁用缓冲，从而按正确顺序实时输出日志。
       final process = await Process.start(
-        executablePath,
-        resolvedArgs,
+        executablePath, // 程序或命令
+        resolvedArgs,   // 参数列表
         workingDirectory: workingDirectory,
+        runInShell: true, // 关键：在 shell 中运行
       );
 
       pInfo.isRunning = true;
       pInfo.process = process;
       pInfo.clearLogs();
-      pInfo.addLog('进程已启动，程序: $executablePath, 工作目录: $workingDirectory\n\n');
+      pInfo.addLog('进程已启动，程序: $executablePath');
+      pInfo.addLog('工作目录: $workingDirectory\n');
 
-      process.stdout.transform(utf8.decoder).listen((data) {
-        pInfo.addLog(data.trim());
+      // 使用 LineSplitter 来确保我们按行处理输出
+      process.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        pInfo.addLog(line);
       });
 
-      process.stderr.transform(utf8.decoder).listen((data) {
-        pInfo.addLog('[错误] ${data.trim()}');
+      process.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+        pInfo.addLog('[错误] $line');
       });
 
       process.exitCode.then((exitCode) {

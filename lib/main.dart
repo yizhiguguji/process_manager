@@ -489,7 +489,7 @@ class _ProcessManagerHomeState extends State<ProcessManagerHome> with WindowList
                                                 child: SingleChildScrollView(
                                                   reverse: true,
                                                   child: SelectableText(
-                                                    process.logs.join(),
+                                                    process.logs.join('\n'),
                                                     style: const TextStyle(
                                                       color: Colors.white,
                                                       fontFamily: 'monospace',
